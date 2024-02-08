@@ -4,7 +4,7 @@
 title = GDL90 Recorder App
 
 # (str) Package name
-package.name = gdl90record
+package.name = GDLRecordApp
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = org.gdl90.record
@@ -230,10 +230,10 @@ android.arch = arm64-v8a
 #
 
 # (str) python-for-android fork to use, defaults to upstream (kivy)
-p4a.fork = kivy
+#p4a.fork = kivy
 
 # (str) python-for-android branch to use, defaults to master
-p4a.branch = master
+#p4a.branch = master
 
 # (str) python-for-android git clone directory (if empty, it will be automatically cloned from github)
 #p4a.source_dir =
