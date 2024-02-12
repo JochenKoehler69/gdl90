@@ -9,6 +9,7 @@ This program implements a sender of the GDL-90 data format used by Stratux.
 Copyright (c) 2013 by Eric Dey; All rights reserved
 """
 
+
 import time
 import socket
 import gdl90.encoder

@@ -32,12 +32,12 @@ class Root(FloatLayout):
 
     def toggle_recordState(self):
         print("Recording will be toggled ...")
-        if RecordingState:
+        if self.RecordingState:
             self.ids["label_state"].text = "Recording stopped"
-            RecordingState = False
+            self.RecordingState = False
         else:
             self.ids["label_state"].text = "Recording is active"
-            RecordingState = True
+            self.RecordingState = True
         
     def load(self, path, filename):
         print('Selected path: %s' % (path))
@@ -45,7 +45,7 @@ class Root(FloatLayout):
         self.dismiss_popup()
 
 
-class ExampleEditor(App):
+class main(App):
     pass
 
 
@@ -54,4 +54,4 @@ Factory.register('LoadDialog', cls=LoadDialog)
 
 
 if __name__ == '__main__':
-    ExampleEditor().run()
+    main().run()
