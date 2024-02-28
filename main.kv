@@ -1,28 +1,148 @@
 #:kivy 1.1.0
+#: import CheckBox kivy.uix.checkbox
 
 Root:
-    label_path: label_path
-    label_state: label_state
+    label_filename: label_filename
 
     BoxLayout:
         orientation: 'vertical'
-        BoxLayout:
-            size_hint_y: None
-            height: 30
-            Button:
-                text: 'Choose Path'
-                on_release: root.show_choose()
-            Button:
-                text: 'Start Recording'
-                on_release: root.toggle_recordState()
+        Button:
+            size_hint_y: 0.15
+            text: 'Record'
+            id: btn_workmode
+            on_release: root.toggle_mode()
+            background_color: (1, 0, 0, 1)
+        
+        BoxLayout: # Box 2
+            size_hint_y: 0.6
+            # Column with GDL90 Data
+            BoxLayout:
+                orientation: 'vertical'
+                Label:
+                    size_hint_y: 0.2
+                    id: label_title
+                    text_size:self.size
+                    valign: 'center'
+                    halign: 'center'
+                    markup: 'True'
+                    text: '[b] GDL90 Data [/b]'
+                BoxLayout:
+                    size_hint_y: 0.6
+                    BoxLayout:
+                        orientation: 'vertical'
+                        Label:
+                            id: label_callsign
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: 'Callsign:  '
+                        Label:
+                            id: label_time
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: 'Time:  '
+                        Label:
+                            id: label_speed
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: "GAS:  "
+                        Label:
+                            id: label_altitude
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: "GPS Alt:  "
+                        Label:
+                            id: label_heading
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: "GPS Heading:  "
+                        Label:
+                            id: label_pos
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'right'
+                            text: "Lat / Long:  " 
+                    BoxLayout:
+                        orientation: 'vertical'
+                        Label:
+                            id: value_callsign
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: 'D-ETGZ'
+                        Label:
+                            id: value_time
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: '12:00:00'
+                        Label:
+                            id: value_speed
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: "123 kts"
+                        Label:
+                            id: value_altitude
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: "01234 ft"
+                        Label:
+                            id: value_heading
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: "123 °"
+                        Label:
+                            id: value_pos
+                            text_size: self.size
+                            valign: 'top'
+                            halign: 'left'
+                            text: "N123.456 E000.111"
+                Label:
+                    size_hint_y: 0.2
+                    id: label_lastupdate
+                    text_size:self.size
+                    valign: 'center'
+                    halign: 'center'
+                    markup: 'True'
+                    text: '[b] Never updated [/b]'
+        Label:
+            size_hint_y: 0.1
+            id: label_filename
+            text: 'No file selected'
+            background_color: (180/255, 180/255, 180/255, 1)
+            canvas.before:
+                Color:
+                    rgba: self.background_color
+                Rectangle:
+                    size: self.size
+                    pos: self.pos
+            # Text Properties
+            color: (0,0,0,1)
+            bold: True
+        Button:
+            size_hint_y: 0.15
+            text: 'Stopped (Press to start Recording)'
+            id: btn_status
+            on_release: root.start_stop()
+            background_color: (0, 1, 0, 1)
 
-        BoxLayout:
-            Label:
-                id: label_path
-                text: 'Selected Path'
-            Label:
-                id: label_state
-                text: 'Recording not started yet'
+<PreferencesDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        CheckBox:
+            on_active: root.autostop_click()
+        Label:
+            id: label_checkautostop
+            text: 'Auto Stop'
 
 <LoadDialog>:
     BoxLayout:
@@ -31,6 +151,33 @@ Root:
         orientation: "vertical"
         FileChooserListView:
             id: filechooser
+            filters: ['*.cap,*.csv']
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+            Button:
+                text: "Load"
+                on_release: root.load(filechooser.path, filechooser.selection)
+
+<OpenDialog>:
+    text_filename: text_filename
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            filters: ['*.cap']
+            on_selection: text_filename.text = self.selection and self.selection[0] or ''
+
+        TextInput:
+            id: text_filename
+            size_hint_y: None
+            height: 30
+            multiline: False
 
         BoxLayout:
             size_hint_y: None
@@ -40,5 +187,5 @@ Root:
                 on_release: root.cancel()
 
             Button:
-                text: "Load"
-                on_release: root.load(filechooser.path, filechooser.selection)
+                text: "Open"
+                on_release: root.open(filechooser.path, text_filename.text)

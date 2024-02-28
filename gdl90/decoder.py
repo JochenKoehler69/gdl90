@@ -5,9 +5,9 @@
 import sys
 import datetime
 from collections import deque
-import messages
+import gdl90.messages as messages
 from gdl90.fcs import crcCheck
-from messagesuat import messageUatToObject
+from gdl90.messagesuat import messageUatToObject
 
 
 class Decoder(object):
@@ -30,10 +30,15 @@ class Decoder(object):
         self.altitude = 0
         self.altitudeAge = 9999
         self.altitudeMaxAge = 5
+        self.callsign = ""
+        self.speed = 0
+        self.heading = 0
+        self.longitude = 0
+        self.latitude = 0
         
         # setup internal time tracking
         self.gpsTimeReceived = False
-        self.dayStart = None
+        self.dayStart = datetime.date.today()
         self.currtime = datetime.datetime.utcnow()
         self.heartbeatInterval = datetime.timedelta(seconds=1)
     
@@ -71,8 +76,8 @@ class Decoder(object):
             
             # Look to see if we have an ending 0x7e marker yet
             try:
-                i = self.inputBuffer.index(chr(0x7e), 1)
-            except ValueError:
+                i = self.inputBuffer.index(0x7e, 1)
+            except ValueError as e:
                 # no end marker found yet
                 #self._log("no end marker found; leaving parser for now")
                 return
@@ -114,7 +119,7 @@ class Decoder(object):
             
             # remove everything up to first 0x7e or end of buffer
             try:
-                i = self.inputBuffer.index(chr(0x7e))
+                i = self.inputBuffer.index(0x7e)
                 #self._log("removing leading bytes before marker")
             except ValueError:
                 # did not find 0x7e, so blank the whole buffer
@@ -197,7 +202,11 @@ class Decoder(object):
                 if not self.gpsTimeReceived:
                     return True
                 print('%02d:%02d:%02d %0.7f %0.7f %d %d %d' % (self.currtime.hour, self.currtime.minute, self.currtime.second, m.Latitude, m.Longitude, m.HVelocity, altitude, m.TrackHeading))
-        
+                self.callsign = m.CallSign
+                self.speed = m.HVelocity
+                self.heading = m.TrackHeading
+                self.longitude = m.Longitude
+                self.latitude = m.Latitude
         elif m.MsgType == 'OwnershipGeometricAltitude':
             if self.format == 'normal':
                 print('MSG11: %d %04xh' % (m.Altitude, m.VerticalMetrics))
@@ -238,13 +247,13 @@ class Decoder(object):
         foundEscapeChar = False
         while True:
             try:
-                i = msg.index(chr(escapeValue))
+                i = msg.index(escapeValue)
                 foundEscapeChar = True
                 msgNew.extend(msg[0:i]); # everything up to the escape character
                 
                 # this will throw an exception if nothing follows the escape
                 escapedValue = msg[i+1] ^ 0x20
-                msgNew.append(chr(escapedValue)); # escaped value
+                msgNew.append(escapedValue); # escaped value
                 del(msg[0:i+2]); # remove prefix bytes, escape, and escaped value
                 
             except (ValueError, IndexError):

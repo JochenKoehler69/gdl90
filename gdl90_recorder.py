@@ -106,12 +106,6 @@ def _get_progVersion():
     """return program version string"""
     return "%s" % (__version__)
 
-
-def _getTimeStamp():
-    """create a time stamp string"""
-    return datetime.datetime.utcnow().isoformat(' ')
-
-
 def _extractSvnKeywordValue(s):
     """Extracts the value string from an SVN keyword property string."""
     if re.match(r'^\$[^:]*\$$', s):
@@ -235,9 +229,6 @@ def _record(options):
 # Interactive Runs
 if __name__ == '__main__':
 
-    # get default network interface device
-    for i in netifaces.interfaces():
-        print("Interface %i %s" % (i, netifaces.interfaces()[i]))
     try:
         def_interface = netifaces.interfaces()[1]
     except IndexError:
