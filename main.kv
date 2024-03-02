@@ -1,17 +1,25 @@
 #:kivy 1.1.0
 #: import CheckBox kivy.uix.checkbox
 
-Root:
+MainWin:
     label_filename: label_filename
 
     BoxLayout:
         orientation: 'vertical'
-        Button:
+        BoxLayout:
             size_hint_y: 0.15
-            text: 'Record'
-            id: btn_workmode
-            on_release: root.toggle_mode()
-            background_color: (1, 0, 0, 1)
+            Button:
+                size_hint_x: 0.7
+                text: 'Record'
+                id: btn_workmode
+                on_release: root.toggle_mode()
+                background_color: (1, 20/255, 20/255, 1)
+            Button:
+                size_hint_x: 0.3
+                text: 'Settings'
+                id: btn_settings
+                on_release: root.settings()
+                background_color: (1, 20/255, 20/255, 1)                
         
         BoxLayout: # Box 2
             size_hint_y: 0.6
@@ -112,10 +120,8 @@ Root:
                     halign: 'center'
                     markup: 'True'
                     text: '[b] Never updated [/b]'
-        Label:
+        BoxLayout:
             size_hint_y: 0.1
-            id: label_filename
-            text: 'No file selected'
             background_color: (180/255, 180/255, 180/255, 1)
             canvas.before:
                 Color:
@@ -123,26 +129,97 @@ Root:
                 Rectangle:
                     size: self.size
                     pos: self.pos
-            # Text Properties
-            color: (0,0,0,1)
-            bold: True
+            Label:
+                size_hint_x: 0.1
+                id: label_fileDesc
+                text: 'Record file:' 
+                # Text Properties
+                color: (0,0,0,1)
+                bold: True
+                halign: 'right'
+            Label:
+                size_hint_x: 0.9
+                id: label_filename
+                text: 'No file selected'
+                # Text Properties
+                color: (0,0,0,1)
+                bold: True      
+                halign: 'left'  
         Button:
             size_hint_y: 0.15
-            text: 'Stopped (Press to start Recording)'
+            text: "Receiving no data to be recorded"
             id: btn_status
             on_release: root.start_stop()
-            background_color: (0, 1, 0, 1)
+            background_color: (127/255, 127/255, 127/255, 1)
 
-<PreferencesDialog>:
+<SettingsDialog>:
     BoxLayout:
         size: root.size
         pos: root.pos
         orientation: "vertical"
-        CheckBox:
-            on_active: root.autostop_click()
-        Label:
-            id: label_checkautostop
-            text: 'Auto Stop'
+        BoxLayout:
+            Label:
+                text: 'Default Directory: '
+                halign: 'right'
+            Button:
+                height: 30
+                id: btn_DirName
+                text: './'
+                halign: 'left'
+                on_release: root.selectDir()
+        BoxLayout:
+            Label:
+                text: 'Automatic Naming for records'
+                halign: 'right'
+            CheckBox:
+                id: checkbox_AutoRecordName
+                halign: 'left'
+        BoxLayout:
+            Label:
+                text: 'Auto Stop'
+                halign: 'right'        
+            CheckBox:
+                id: checkbox_Autostop
+                halign: 'left'
+        BoxLayout:
+            Label:
+                text: 'Seconds to wait until recording stops'
+                halign: 'right'
+            TextInput:
+                id: text_WaitUntilAutostop
+                size_hint_y: None
+                multiline: False
+                input_type: 'number'
+                input_filter: 'int'
+                text: '1200'
+                halign: 'left'
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+            Button:
+                text: "Okay"
+                on_release: root.changeSettings(btn_DirName.text, checkbox_AutoRecordName.active, checkbox_Autostop.active, text_WaitUntilAutostop.text)
+
+
+<SelectDirDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: fdirchooser
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+            Button:
+                text: "Select"
+                on_release: root.select(fdirchooser.path)
 
 <LoadDialog>:
     BoxLayout:
@@ -172,20 +249,17 @@ Root:
             id: filechooser
             filters: ['*.cap']
             on_selection: text_filename.text = self.selection and self.selection[0] or ''
-
         TextInput:
             id: text_filename
             size_hint_y: None
             height: 30
             multiline: False
-
         BoxLayout:
             size_hint_y: None
             height: 30
             Button:
                 text: "Cancel"
                 on_release: root.cancel()
-
             Button:
                 text: "Open"
                 on_release: root.open(filechooser.path, text_filename.text)

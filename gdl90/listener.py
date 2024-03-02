@@ -26,8 +26,8 @@ class ListenerThread(threading.Thread):
         self.logFile = None
         try:
             self.sockIn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            #self.sockIn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            self.sockIn.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.sockIn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            #self.sockIn.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             self.init()
         except Exception as e:
             print(e, sys.stderr)
