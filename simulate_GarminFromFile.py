@@ -69,9 +69,17 @@ def print_error(msg):
     """print an error message"""
     print(sys.stderr, msg)
 
-def simulateIt(filename, callSign, offsetstart, duration=1.0e9, takeoff_altitude=0.0, landing_altitude=0.0, dest="255.255.255.255", port=43211, lapsefactor=1.0, StartTime=None, EndTime=None):
+def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=0.0, landing_altitude=0.0, dest="255.255.255.255", port=43211, lapsefactor=1.0, starttimeStr='', endtimeStr=''):
     print("Simulating Skyradar from Garmin CSV File")
     print("Transmitting to %s:%s" % (dest, port))
+    StartTime = None
+    EndTime = None
+    if not starttimeStr == '':
+        StartTime = datetime.strptime(starttimeStr, time_format).time().replace(tzinfo=timezone.utc)
+        offsetstart = 0
+    if not endtimeStr == '':
+        EndTime = datetime.strptime(endtimeStr, time_format).time().replace(tzinfo=timezone.utc)
+        duration = 18000
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -225,39 +233,30 @@ def simulateIt(filename, callSign, offsetstart, duration=1.0e9, takeoff_altitude
     # plays.play()
     return 0
 
-def _options_okay(options, starttime, endtime):
+def _options_okay(options):
     """test to see if options are valid"""
     errors = False
-    starttime = None
-    endtime = None
+    dummy = None
     
     if not (options.file == "" or os.path.exists(options.file)):
         errors = True
         print_error("Argument '--file' points to non-existent file")
-    
-    return not errors
-
-def getStartTime(options):
-    starttime = None
     if not options.start_time == '':
         try:
-            starttime = datetime.time.strptime(options.start_time, time_format)
+            dummy = time.strptime(options.start_time, time_format)
         except:
             errors = True
             print_error("Argument '--start_time' syntax is not correct")
-        options.offsetStart = 0
-    return starttime
-
-def getEndTime (options):
-    endtime = None
+    options.offsetStart = 0
     if not options.end_time == '':
         try:
-            endtime = datetime.time.strptime(options.end_time, time_format)
+            dummy = time.strptime(options.end_time, time_format)
         except:
             errors = True
             print_error("Argument '--send_time' syntax is not correct")
-        options.duration = 18000
-    return endtime
+    options.duration = 18000
+    
+    return not errors
 
 if __name__ == '__main__':
 
@@ -277,17 +276,17 @@ if __name__ == '__main__':
     # add options outside of any option group
     optParser.add_option("--verbose", "-v", action="store_true", help="Verbose reporting on STDERR")
     optParser.add_option("--file","-f", action="store", default="example-g3x.csv", type="str", metavar="FILE", help="input file (default=STDIN)")
-    optParser.add_option("--callsign","-c", action="store", default="DEUKN", type="str", metavar="CALLSIGN", help="Aeroplane Callsign (default=DEUKN)")
 
     # optional options
     group = optparse.OptionGroup(optParser,"Optional")
-    group.add_option("--lapsefactor","-l", action="store", default="1.0", type="float", metavar="LAPSEFACTOR", help="time lapse factor (default=%default)")
+    group.add_option("--callsign","-c", action="store", default="DEUKN", type="str", metavar="CALLSIGN", help="Aeroplane Callsign (default=DEUKN)")
+    group.add_option("--lapsefactor","-a", action="store", default="1.0", type="float", metavar="LAPSEFACTOR", help="time lapse factor (default=%default)")
     group.add_option("--offsetstart","-o", action="store", default="0", type="float", metavar="OFFSETSTART", help="relative time to start [s] (default=%default)")
     group.add_option("--duration","-u", action="store", default="18000", type="float", metavar="TIMEOFDURATION", help="relative duration of video [s] or absolute endtime [HH:MM:SS]) (default=%default)")
     group.add_option("--start_time","-s", action="store", default="09:45:00", type="str", metavar="TIMEOFSTART", help="absolute start time [HH:MM:SS] (default=%default)") 
     group.add_option("--end_time","-e", action="store", default="11:45:00", type="str", metavar="TIMEOFSTOP", help="absolute end time [HH:MM:SS] (default=%default)") 
-    group.add_option("--takeoff_altitude","-a", action="store", default="-1000", type="float", metavar="TAKEOFFALT", help="Correct take off altitude [ft]) (default=%default)")
-    group.add_option("--landing_altitude","-t", action="store", default="-1000", type="float", metavar="LANDINGALT", help="Correct landing altitude [ft]) (default=%default)")
+    group.add_option("--takeoff_altitude","-t", action="store", default="-1000", type="float", metavar="TAKEOFFALT", help="Correct take off altitude [ft]) (default=%default)")
+    group.add_option("--landing_altitude","-l", action="store", default="-1000", type="float", metavar="LANDINGALT", help="Correct landing altitude [ft]) (default=%default)")
     group.add_option("--dest","-d", action="store", default=DEF_SEND_ADDR, type="str", metavar="IP", help="destination IP (default=%default)")
     group.add_option("--port","-p", action="store", default=DEF_SEND_PORT, type="int", metavar="NUM", help="destination port (default=%default)")
     optParser.add_option_group(group)
@@ -296,9 +295,9 @@ if __name__ == '__main__':
     (options, args) = optParser.parse_args(args=sys.argv[1:])
 
     # check options
-    if not _options_okay(options, opt_starttime, opt_endtime):
+    if not _options_okay(options):
         print_error("Stopping due to option errors.")
         sys.exit(EXIT_CODE['OPTIONS'])
 
     simulateIt(options.file, options.callsign, options.offsetstart, options.duration, options.takeoff_altitude, options.landing_altitude, 
-               options.dest, options.port, options.lapsefactor, getStartTime(options), getEndTime(options))
+               options.dest, options.port, options.lapsefactor, options.start_time, options.end_time)
