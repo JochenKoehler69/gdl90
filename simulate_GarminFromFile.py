@@ -37,19 +37,19 @@ DEF_SEND_PORT=43211
 
 # These are the identifiers in a Garmin CSV file G1000
 class cvsIDs(namedtuple('IDs_G1000', ['id_Callsign', 'id_date', 'id_UTCOffset', 'id_time', 'id_latitude', 'id_longitude', 
-                                      'id_altitudeMSL', 'id_altitudeGPS', 'id_heading', 'id_track', 'id_groundspeed', 'id_airspeed', 
+                                      'id_altitudeMSL', 'id_altitudeGPS', 'id_altitudeP', 'id_heading', 'id_track', 'id_groundspeed', 'id_airspeed', 
                                       'id_trueairspeed', 'id_verticalspeed', 'id_windspeed', 'id_winddir'])):
     pass
 
 G1000_IDs = cvsIDs(id_Callsign='aircraft_ident=', id_date='Lcl Date', id_UTCOffset='UTCOfst', id_time='Lcl Time', id_latitude='Latitude', 
-                   id_longitude='Longitude', id_altitudeMSL='AltMSL', id_altitudeGPS='AltGPS', id_heading='HDG', id_track='TRK', 
+                   id_longitude='Longitude', id_altitudeMSL='AltMSL', id_altitudeGPS='AltGPS', id_altitudeP='AltP', id_heading='HDG', id_track='TRK', 
                    id_groundspeed='GndSpd', id_airspeed='IAS', id_trueairspeed='TAS', id_verticalspeed='VSpdG', id_windspeed='WndSpd', id_winddir='WndDr')
 
 # Date (yyyy-mm-dd),Time (hh:mm:ss),UTC Time (hh:mm:ss),UTC Offset (hh:mm),Latitude (deg),Longitude (deg),GPS Altitude (ft),GPS Fix Status,GPS Time of Week (sec),GPS Ground Speed (kt),GPS Ground Track (deg),GPS Velocity E (m/sec),GPS Velocity N (m/sec),GPS Velocity U (m/sec),Magnetic Heading (deg),GPS PDOP,GPS Sats,Pressure Altitude (ft),Baro Altitude (ft),Vertical Speed (ft/min),Indicated Airspeed (kt),True Airspeed (kt),Pitch (deg),Roll (deg),Lateral Acceleration (G),Normal Acceleration (G),AOA Cp,AOA,Selected Heading (deg),Selected Altitude (ft),Selected Vertical Speed (ft/min),Selected Airspeed (kt),Baro Setting (inch Hg),COM Frequency (MHz),NAV Frequency (MHz),Active Nav Source,Nav Annunciation,Nav Identifier,Nav Distance (nm),Nav Bearing (deg),Nav Course (deg),Nav Cross Track Distance (nm),Horizontal CDI Deflection,Horizontal CDI Full Scale (ft),Horizontal CDI Scale,Vertical CDI Deflection,Vertical CDI Full Scale (ft),VNAV CDI Deflection,VNAV Altitude (ft),Autopilot State,FD Lateral Mode,FD Vertical Mode,FD Roll Command (deg),FD Pitch Command (deg),FD Altitude (ft),AP Roll Command (deg),AP Pitch Command (deg),AP VS Command (ft/min),AP Altitude Command (ft),AP Roll Torque (%),AP Pitch Torque (%),AP Roll Trim Motor,AP Pitch Trim Motor,Magnetic Variation (deg),Outside Air Temp (deg C),Density Altitude (ft),Height Above Ground (ft),Wind Speed (kt),Wind Direction (deg),AHRS Status,AHRS Dev (%),Magnetometer Status,Network Status,Transponder Code,Transponder Mode,Oil Temp (deg F),Fuel L Qty (gal),Fuel R Qty (gal),Fuel Press (PSI),Oil Press (PSI),RPM,   Manifold Press (inch Hg),Volts 1,Volts E,Amps, Fuel Flow (gal/hour),Co Ppm,CHT1 (deg F),CHT2 (deg F),EGT1 (deg F),EGT2 (deg F),ALT2 (discrete),ALT1 (discrete),BACKUP BATT  (discrete),CAS Alert,Terrain Alert,Engine 1 Cycle Count
 # Lcl Date,         Lcl Time,       UTC Time,           UTCOfst,           Latitude,      Longitude,      AltGPS,           GPSfix,                              ,GndSpd,               TRK,                   GPSVelE,               GPSVelN,               GPSVelU,               HDG,                   PDOP,            ,AltP,                  AltInd,            VSpd,                   IAS,                    TAS,               Pitch,      Roll,      LatAc,                   NormAc,                       ,AOA,SelHDG,                SelALT,                SelVSpd,                         SelIAS,                Baro,                  COM1,               NAV1,               NavSrc,          ,                 NavIdent,      NavDist,          NavBrg,           NavCRS,          NavXTK,                       HCDI,                    ,                              ,                                             VCDI,                       ,VNAV CDI,           VNAVAlt,                          ,               ,                ,                     ,                      ,                ,                     ,                      ,                      ,                        ,                  ,                   ,                  ,                   ,MagVar,                  OAT,                     AltD,                 AGL,                     WndSpd,         WndDr,                                       ,                   ,              ,                ,               ,,E1 OilT,         FQty1,           FQty2,           E1 FPres,        E1 OilP,        E1 RPM,E1 MAP,                  Volts1, Volts2, Amps1,E1 FFlow,                  ,E1 CHT1,     E1 CHT2,     E1 EGT1,     E1 EGT2,                    ,,,,,
 
 GDU460_IDs = cvsIDs(id_Callsign='aircraft_ident=', id_date='Lcl Date', id_UTCOffset='UTCOfst', id_time='Lcl Time', id_latitude='Latitude', 
-                    id_longitude='Longitude', id_altitudeMSL='AltInd', id_altitudeGPS='AltGPS', id_heading='HDG', id_track='TRK', 
+                    id_longitude='Longitude', id_altitudeMSL='AltInd', id_altitudeGPS='AltGPS', id_altitudeP='AltP', id_heading='HDG', id_track='TRK', 
                     id_groundspeed='GndSpd', id_airspeed='IAS', id_trueairspeed='TAS', id_verticalspeed='VSpd', id_windspeed='WndSpd', id_winddir='WndDr')
 
 # Date-Format
@@ -69,7 +69,7 @@ def print_error(msg):
     """print an error message"""
     print(sys.stderr, msg)
 
-def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=0.0, landing_altitude=0.0, dest="255.255.255.255", port=43211, lapsefactor=1.0, starttimeStr='', endtimeStr=''):
+def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", port=43211, lapsefactor=1.0, starttimeStr='', endtimeStr=''):
     print("Simulating Skyradar from Garmin CSV File")
     print("Transmitting to %s:%s" % (dest, port))
     StartTime = None
@@ -88,9 +88,15 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
     packetTotal = 0
     FirstIt = True
     encoder = gdl90.encoder.Encoder()
-    OffsetLandingAltitude = 0
-    OffsetTakeOffAltitude = 0
-    gradOffsetAltitude = 0
+    OffsetLandingAltitudeGPS = 0
+    OffsetTakeOffAltitudeGPS = 0
+    gradOffsetAltitudeGPS = 0
+    OffsetLandingAltitudeMSL = 0
+    OffsetTakeOffAltitudeMSL = 0
+    gradOffsetAltitudeMSL = 0
+    OffsetLandingAltitudeP = 0
+    OffsetTakeOffAltitudeP = 0
+    gradOffsetAltitudeP = 0
     TakeOffDetectedForOffset = False
 
     # First look for the correct call sign and on what line to start the csv reader
@@ -130,26 +136,35 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
         reader = csv.DictReader(csv_file)
         # First run to detect take-off and landing
         for row in reader:
-            windspeed = row[Product_IDs.id_windspeed]
+            groundspeed = float(row[Product_IDs.id_groundspeed])
+            verticalspeed = float(row[Product_IDs.id_verticalspeed])
+            airspeed = float(row[Product_IDs.id_airspeed])            
             currdatetime_str = row[Product_IDs.id_date] + ' ' + row[Product_IDs.id_time] + ' ' + row[Product_IDs.id_UTCOffset].replace(":", "")
             currdatetime = datetime.strptime(currdatetime_str, datetime_format)
-            if windspeed == '':
-                if not TakeOffDetectedForOffset: 
-                    continue
-                if TakeOffDetectedForOffset:
-                    LandingTime = currdatetime
-                    if takeoff_altitude > -1000.0 and landing_altitude > - 1000.0:
-                        OffsetLandingAltitude = landing_altitude - float(row[Product_IDs.id_altitudeGPS])
-                        gradOffsetAltitude = (OffsetLandingAltitude - OffsetTakeOffAltitude) / (LandingTime - TakeOffTime).total_seconds()
-                    print("Landing at %s with altitude offset: %d" % (LandingTime.strftime('%H:%M:%S'), OffsetLandingAltitude))
-                    break
-            else:
+            if groundspeed > 40 and airspeed > 40 and verticalspeed > 100:
                 if not TakeOffDetectedForOffset:
                     if takeoff_altitude > -1000.0 and landing_altitude > - 1000.0:
-                        OffsetTakeOffAltitude = takeoff_altitude - float(row[Product_IDs.id_altitudeGPS])
+                        OffsetTakeOffAltitudeGPS = takeoff_altitude - float(row[Product_IDs.id_altitudeGPS])+30
+                        OffsetTakeOffAltitudeMSL = takeoff_altitude - float(row[Product_IDs.id_altitudeMSL])+30
+                        OffsetTakeOffAltitudeP = takeoff_altitude - float(row[Product_IDs.id_altitudeP])+30
                     TakeOffTime = currdatetime
-                    print("Takeoff at %s with altitude offset: %d" % (TakeOffTime.strftime('%H:%M:%S'), OffsetTakeOffAltitude))
+                    print("Takeoff at %s with altitude offset: %d" % (TakeOffTime.strftime('%H:%M:%S'), OffsetTakeOffAltitudeGPS))
                     TakeOffDetectedForOffset = True
+            else:
+                if not TakeOffDetectedForOffset: 
+                    continue
+                if TakeOffDetectedForOffset and groundspeed < 30 and airspeed > 30 and abs(verticalspeed) < 100:
+                    LandingTime = currdatetime
+                    if takeoff_altitude > -1000.0 and landing_altitude > - 1000.0:
+                        OffsetLandingAltitudeGPS = landing_altitude - float(row[Product_IDs.id_altitudeGPS])
+                        OffsetLandingAltitudeMSL = landing_altitude - float(row[Product_IDs.id_altitudeMSL])
+                        OffsetLandingAltitudeP = landing_altitude - float(row[Product_IDs.id_altitudeP])
+                        gradOffsetAltitudeGPS = (OffsetLandingAltitudeGPS - OffsetTakeOffAltitudeGPS) / (LandingTime - TakeOffTime).total_seconds()
+                        gradOffsetAltitudeMSL = (OffsetLandingAltitudeMSL - OffsetTakeOffAltitudeMSL) / (LandingTime - TakeOffTime).total_seconds()
+                        gradOffsetAltitudeP = (OffsetLandingAltitudeP - OffsetTakeOffAltitudeP) / (LandingTime - TakeOffTime).total_seconds()
+                    print("Landing at %s with altitude offset: %d" % (LandingTime.strftime('%H:%M:%S'), OffsetLandingAltitudeGPS))
+                    break
+
 
         # This is the second run
         csv_file.seek(posStartofValues)
@@ -161,9 +176,13 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                 timeSim = currdatetime.second + currdatetime.minute *60 + currdatetime.hour *3600
                 # Altitude correction
                 if TakeOffDetectedForOffset:
-                    OffsetAltitude = OffsetTakeOffAltitude + gradOffsetAltitude * max(0.0, (min(currdatetime, LandingTime) - TakeOffTime).total_seconds())
+                    OffsetAltitudeGPS = OffsetTakeOffAltitudeGPS + gradOffsetAltitudeGPS * max(0.0, (min(currdatetime, LandingTime) - TakeOffTime).total_seconds())
+                    OffsetAltitudeMSL = OffsetTakeOffAltitudeMSL + gradOffsetAltitudeMSL * max(0.0, (min(currdatetime, LandingTime) - TakeOffTime).total_seconds())
+                    OffsetAltitudeP = OffsetTakeOffAltitudeP + gradOffsetAltitudeP * max(0.0, (min(currdatetime, LandingTime) - TakeOffTime).total_seconds())
                 else:
-                    OffsetAltitude = 0
+                    OffsetAltitudeGPS = 0
+                    OffsetAltitudeMSL = 0
+                    OffsetAltitudeP = 0
                 if FirstIt:
                     time0 = timeSim
                     FirstIt = False
@@ -182,8 +201,9 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                 elif currdatetime > EndTime: # is duration over already? 
                     break
 
-                altitudeMSL = float(row[Product_IDs.id_altitudeMSL]) + OffsetAltitude
-                altitudeGPS = float(row[Product_IDs.id_altitudeGPS])
+                altitudeMSL = float(row[Product_IDs.id_altitudeMSL]) + OffsetAltitudeMSL
+                altitudeGPS = float(row[Product_IDs.id_altitudeGPS]) + OffsetAltitudeGPS
+                altitudeP = float(row[Product_IDs.id_altitudeP]) + OffsetAltitudeP
                 groundspeed = float(row[Product_IDs.id_groundspeed])
                 verticalspeed = float(row[Product_IDs.id_verticalspeed])
                 latitude = float(row[Product_IDs.id_latitude])
@@ -205,12 +225,12 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
             packetTotal += 1
             
             # Ownership Report
-            buf = encoder.msgOwnershipReport(latitude=latitude, longitude=longitude, altitude=altitudeGPS, hVelocity=groundspeed, vVelocity=verticalspeed, trackHeading=track, misc=9, callSign=callSign)
+            buf = encoder.msgOwnershipReport(latitude=latitude, longitude=longitude, altitude=altitudeP, hVelocity=groundspeed, vVelocity=verticalspeed, trackHeading=track, misc=9, callSign=callSign)
             s.sendto(buf, (dest, port))
             packetTotal += 1
             
             # Ownership Geometric Altitude
-            buf = encoder.msgOwnershipGeometricAltitude(altitude=altitudeGPS)
+            buf = encoder.msgOwnershipGeometricAltitude(altitude=altitudeGPS+100)
             s.sendto(buf, (dest, port))
             packetTotal += 1
             
@@ -221,7 +241,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
             
             # On-screen status output 
             if (currdatetime.second % 10 == 0):
-                print("Real Time %s, lat=%3.6f, long=%3.6f, altitudeMSL=%d, heading=%d, groundspeed=%d, airspeed=%d" % (currdatetime.strftime('%H:%M:%S'), latitude, longitude, altitudeMSL, heading, groundspeed, airspeed))
+                print("Real Time %s, lat=%3.6f, long=%3.6f, altitudeGPS=%d, heading=%d, groundspeed=%d, airspeed=%d" % (currdatetime.strftime('%H:%M:%S'), latitude, longitude, altitudeGPS, heading, groundspeed, airspeed))
                 
             # Delay for the rest of this second
             time.sleep(max(0.0, 1.0/lapsefactor - (time.time() - timeStart)))
@@ -259,11 +279,6 @@ def _options_okay(options):
     return not errors
 
 if __name__ == '__main__':
-
-    #mixer function call
-    # mixer.init()
-    #storing the sound after accessing it
-    # plays=mixer.Sound("alarm-clock-short-6402.mp3")
     
     # Get name of program from command line or else use embedded default
     progName = os.path.basename(sys.argv[0])  
