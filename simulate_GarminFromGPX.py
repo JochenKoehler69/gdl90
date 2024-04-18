@@ -5,6 +5,7 @@
 
 
 import time
+import timesetter
 from datetime import datetime, timezone, timedelta
 import socket
 import gdl90.encoder
@@ -57,7 +58,8 @@ def print_error(msg):
     """print an error message"""
     print(sys.stderr, msg)
 
-def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", port=43211, starttimeStr='', endtimeStr=''):
+def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", 
+               port=43211, starttimeStr='', endtimeStr='', realtime=0, logfile=0):
     print("Simulating Skyradar from Skydemon GPX File")
     print("Transmitting to %s:%s" % (dest, port))
     StartTime = None
@@ -81,6 +83,11 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
     gradOffsetAltitudeGPS = 0
     lastdatetime = None
     TakeOffDetectedForOffset = False
+    TimeSynced = False
+
+    # Open log file if necessary
+    if logfile > 0:
+        log_file = open('logfile.txt', 'w')
 
     # GPX File öffnen
     gpx_file = open(filename, 'r')
@@ -92,133 +99,183 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
     gpx_track.segments.append(gpx_segment)
     for track in gpx.tracks:
         for segment in track.segments:
-            actPoint = 0
             # Erste Runde: Start und Landung finden und doppelte Punkte rausschmeissen
             for point in segment.points:
                 groundspeed = point.speed*mps_to_kt
-                currdatetime = point.time # richtiges Format rausfinden
+                logdatetime = point.time # richtiges Format rausfinden
 
                 if lastdatetime is None:
-                    lastdatetime = currdatetime
+                    lastdatetime = logdatetime
                 else:
-                    diffTime = currdatetime - lastdatetime
+                    diffTime = logdatetime - lastdatetime
                     if diffTime.seconds < 1.1:
                         # diesen Punkt rausschmeissen
                         segment.points.remove(point)
-                    lastdatetime = currdatetime                    
+                    lastdatetime = logdatetime                    
                 if groundspeed > 40:
                     if not TakeOffDetectedForOffset:
                         if takeoff_altitude > -1000.0 and landing_altitude > - 1000.0:
                             OffsetTakeOffAltitudeGPS = takeoff_altitude - point.elevation*m_to_ft + 10
-                        TakeOffTime = currdatetime
+                        TakeOffTime = logdatetime
                         print("Takeoff at %s with altitude offset: %d" % (TakeOffTime.strftime('%H:%M:%S'), OffsetTakeOffAltitudeGPS))
                         TakeOffDetectedForOffset = True
                 else:
                     if not TakeOffDetectedForOffset: 
                         continue
                     if TakeOffDetectedForOffset and groundspeed < 20:
-                        LandingTime = currdatetime
+                        LandingTime = logdatetime
                         if takeoff_altitude > -1000.0 and landing_altitude > - 1000.0:
                             OffsetLandingAltitudeGPS = landing_altitude - point.elevation*m_to_ft
                             gradOffsetAltitudeGPS = (OffsetLandingAltitudeGPS - OffsetTakeOffAltitudeGPS) / (LandingTime - TakeOffTime).total_seconds()
                         print("Landing at %s with altitude offset: %d" % (LandingTime.strftime('%H:%M:%S'), OffsetLandingAltitudeGPS))
                         break
-
+            print("Flying Time: %s" % (LandingTime - TakeOffTime))
 
             # This is the second run
             num_points = 0
             dT = 0
             for point in segment.points:
-                timeStart = time.time()  # mark start time - just for delay
                 try:
-                    currdatetime = point.time
-                    timeSim = currdatetime.second + currdatetime.minute *60 + currdatetime.hour *3600
+                    logdatetime = point.time
+                    if realtime > 0:
+                        # Wir warten jetzt, bis wir Synchron mit der Echtzeit sind
+                        TimeToWaitForSync = datetime.now(timezone.utc) - logdatetime
+                        TimeToWaitInSec = TimeToWaitForSync.seconds + 86400*(TimeToWaitForSync.days)
+                        if TimeToWaitInSec > 3600:
+                            print("Sync Time has gone already :-( - Exiting")
+                            break
+                        else:
+                            if TimeSynced == False:
+                                print("Have to wait %d seconds" % (-TimeToWaitInSec))
+                            time.sleep(max(0.0, -TimeToWaitInSec))
+                            TimeSynced = True
+                    nextTimeSim = logdatetime.second + logdatetime.minute *60 + logdatetime.hour *3600
                     # Altitude correction
                     if TakeOffDetectedForOffset:
-                        OffsetAltitudeGPS = OffsetTakeOffAltitudeGPS + gradOffsetAltitudeGPS * max(0.0, (min(currdatetime, LandingTime) - TakeOffTime).total_seconds())
+                        OffsetAltitudeGPS = OffsetTakeOffAltitudeGPS + gradOffsetAltitudeGPS * max(0.0, (min(logdatetime, LandingTime) - TakeOffTime).total_seconds())
                     else:
                         OffsetAltitudeGPS = 0
-                    altitudeGPS = point.elevation*m_to_ft + OffsetAltitudeGPS
-                    groundspeed = point.speed*mps_to_kt
-                    latitude = point.latitude
-                    longitude = point.longitude
-                    latrad = math.radians(latitude)
-                    lonrad = math.radians(longitude)
-                    airspeed = groundspeed
+                    nextAltitude = point.elevation*m_to_ft + OffsetAltitudeGPS
+                    nextGroundspeed = point.speed*mps_to_kt
+                    nextLatitude = point.latitude
+                    nextLongitude = point.longitude
+                    nextLatrad = math.radians(nextLatitude)
+                    nextLonrad = math.radians(nextLongitude)
                     if FirstIt:
-                        timeSimStart = timeSim
-                        verticalspeed = 0 # noch zu berechnen
-                        heading = 0.0 # noch zu berechnen
-                        track = 0.0 # noch zu berechnen
-
+                        nextVerticalspeed = 0 
+                        nextTrack = 360.0
+                        timeSim = nextTimeSim
                         FirstIt = False
                         if StartTime is None:
-                            StartTime = currdatetime + timedelta(seconds=offsetstart)
+                            StartTime = logdatetime + timedelta(seconds=offsetstart)
                         else:
                             # Zeit auf Datum draufrechnen
-                            StartTime = datetime.combine(currdatetime.date(), StartTime)
+                            StartTime = datetime.combine(logdatetime.date(), StartTime)
                         if EndTime is None:
-                            EndTime = currdatetime + timedelta(seconds=offsetstart) + timedelta(seconds=duration)
+                            EndTime = logdatetime + timedelta(seconds=offsetstart) + timedelta(seconds=duration)
                         else:
-                            # Zeit auf Datum draufechnen
-                            EndTime = datetime.combine(currdatetime.date(), EndTime)
+                            # Zeit auf Datum draufrechnen
+                            EndTime = datetime.combine(logdatetime.date(), EndTime)
                     else:
-                        dT = timeSim - lasttimeSim
-                        if dT > 0:
-                            verticalspeed = (altitudeGPS - lastalt) / dT
-                            distance = math.acos(math.sin(lastlat)*math.sin(latrad)+math.cos(lastlat)*math.cos(latrad)*math.cos(lonrad-lastlon))*6371 
-                            if groundspeed > 1.0 and distance > 0.001:
-                                X = math.cos(latrad) * math.sin(lonrad-lastlon)
-                                Y = math.cos(lastlat) * math.sin(latrad) - math.sin(lastlat) * math.cos(latrad) * math.cos(lonrad-lastlon)
-                                heading = math.degrees(math.atan2(X,Y))
-                                if heading < 0:
-                                    heading = 360.0+heading
-                                track = heading
+                        if logdatetime <= StartTime: # did we pass start time already?
+                            timeSim = nextTimeSim
+                            continue
+                        elif logdatetime > EndTime: # is duration over already? 
+                            break                        
+                        dT = nextTimeSim - lastTimeSim
+                        if dT < 0.1:
+                            continue
+                        nextVerticalspeed = (nextAltitude - lastAltitude) / dT * 60
+                        try:
+                            distance = math.acos(math.sin(lastLatrad)*math.sin(nextLatrad)+math.cos(lastLatrad)*math.cos(nextLatrad)*math.cos(min(0.0, max(1.0, nextLonrad-nextLonrad))))*6371 
+                        except Exception as e:
+                            prttext = "lastLatrad=%09.5f, nextLatrad=%09.5f, nextLonrad=%09.5f, nextLonrad=%09.5f" % (lastLatrad, nextLatrad, nextLonrad, nextLonrad)
+                            print(prttext)
+                            if logfile > 0:
+                                log_file.write(prttext + "\n")
+
+                        if nextGroundspeed > 1.0 or distance > 0.01:
+                            X = math.cos(nextLatrad) * math.sin(nextLonrad-lastLonrad)
+                            Y = math.cos(lastLatrad) * math.sin(nextLatrad) - math.sin(lastLatrad) * math.cos(nextLatrad) * math.cos(nextLonrad-lastLonrad)
+                            nextTrack = math.degrees(math.atan2(X,Y))+360.0
+                            if lastTrack >= 540.0 and nextTrack < 200.0:
+                                lastTrack = lastTrack-360.0
+                            elif nextTrack >= 540.0 and lastTrack < 200.0:
+                                nextTrack = nextTrack - 360.0
+                            elif lastTrack <= 180.0 and nextTrack > 520.0:
+                                lastTrack = lastTrack + 360.0
+                            elif nextTrack <= 180.0 and lastTrack > 520.0:
+                                nextTrack = nextTrack + 360.0
                         else:
-                            print("dT == 0.0 !")
-                    lastlat = latrad
-                    lastlon = lonrad
-                    lastalt = altitudeGPS
-                    lasttimeSim = timeSim
-                    lastHeading = heading
-                    if currdatetime <= StartTime: # did we pass start time already?
-                        continue
-                    elif currdatetime > EndTime: # is duration over already? 
-                        break
-                    waitingtime = max(0.0, dT - (time.time()-timeStart))
-                    time.sleep(max(0.0, dT - (time.time()-timeStart)))
+                            nextGroundspeed = 0.0
+                        while timeSim < nextTimeSim and dT > 0.5:
+                            timeStartLoop = time.time()  # mark start time - just for delay
+                            timeSim = timeSim + 1.0
+
+                            # Calculate intermediate step
+                            intMult = (timeSim-lastTimeSim) / (nextTimeSim - lastTimeSim)
+                            latitude = lastLatitude + (nextLatitude-lastLatitude) * intMult
+                            longitude = lastLongitude + (nextLongitude-lastLongitude) * intMult
+                            altitude = lastAltitude + (nextAltitude-lastAltitude) * intMult
+                            groundspeed = lastGroundspeed + (nextGroundspeed-lastGroundspeed) * intMult
+                            verticalspeed = lastVerticalspeed + (nextVerticalspeed-lastVerticalspeed) * intMult
+                            track = lastTrack + (nextTrack-lastTrack) * intMult - 360.0
+                            if track < 0:
+                                track = 360.0+track
+
+
+                            # Heartbeat Message
+                            buf = encoder.msgHeartbeat(ts = logdatetime.astimezone(timezone.utc))
+                            s.sendto(buf, (dest, port))
+                            packetTotal += 1
+                            
+                            # Ownership Report
+                            buf = encoder.msgOwnershipReport(latitude=latitude, longitude=longitude, altitude=altitude+160, hVelocity=groundspeed, vVelocity=verticalspeed, trackHeading=track, misc=9, callSign=callSign)
+                            s.sendto(buf, (dest, port))
+                            packetTotal += 1
+                            
+                            # Ownership Geometric Altitude
+                            buf = encoder.msgOwnershipGeometricAltitude(altitude=altitude+160)
+                            s.sendto(buf, (dest, port))
+                            packetTotal += 1
+                            
+                            # GPS Time, Custom 101 Message
+                            buf = encoder.msgGpsTime(count=packetTotal, quality=1, hour=logdatetime.hour, minute=logdatetime.minute)
+                            s.sendto(buf, (dest, port))
+                            packetTotal += 1
+                            
+                            # On-screen status output 
+                            if (timeSim % 1 == 0):
+                                showdatetime = logdatetime + timedelta(seconds=timeSim-lastTimeSim)
+                                prttext = "#%04d Real Time %s, lat=%09.5f, long=%09.5f, altitude=%05d, track=%05.1f, lasttrack=%05.1f, nexttrack=%05.1f, groundspeed=%05.1f" % (num_points, showdatetime.strftime('%H:%M:%S'), latitude, longitude, altitude, track, lastTrack, nextTrack, groundspeed)
+                                print(prttext)
+                                if logfile > 0:
+                                    log_file.write(prttext + "\n")
+
+                            time.sleep(max(0.0, 1.0 - (time.time()-timeStartLoop)))
+
+                    lastLatitude = nextLatitude
+                    lastLatrad = nextLatrad
+                    lastLongitude = nextLongitude
+                    lastLonrad = nextLonrad
+                    lastAltitude = nextAltitude
+                    lastTimeSim = timeSim
+                    lastTrack = nextTrack
+                    lastGroundspeed = nextGroundspeed
+                    lastVerticalspeed = nextVerticalspeed
+
+                    num_points = num_points + 1
+
                 except Exception as e:
                     print(e)
+                    if logfile > 0:
+                        log_file.write(str(e))
                     break
-                
-                # Heartbeat Message
-                buf = encoder.msgHeartbeat(ts = currdatetime.astimezone(timezone.utc))
-                s.sendto(buf, (dest, port))
-                packetTotal += 1
-                
-                # Ownership Report
-                buf = encoder.msgOwnershipReport(latitude=latitude, longitude=longitude, altitude=altitudeGPS+160, hVelocity=groundspeed, vVelocity=verticalspeed, trackHeading=track, misc=9, callSign=callSign)
-                s.sendto(buf, (dest, port))
-                packetTotal += 1
-                
-                # Ownership Geometric Altitude
-                buf = encoder.msgOwnershipGeometricAltitude(altitude=altitudeGPS+160)
-                s.sendto(buf, (dest, port))
-                packetTotal += 1
-                
-                # GPS Time, Custom 101 Message
-                buf = encoder.msgGpsTime(count=packetTotal, quality=1, hour=currdatetime.hour, minute=currdatetime.minute)
-                s.sendto(buf, (dest, port))
-                packetTotal += 1
 
-                num_points = num_points +1
-                
-                # On-screen status output 
-                #if ((timeSim-timeSimStart) % 10 == 0):
-                print("Real Time %s, lat=%3.6f, long=%3.6f, altitudeGPS=%d, heading=%d, groundspeed=%d" % (currdatetime.strftime('%H:%M:%S'), latitude, longitude, altitudeGPS, heading, groundspeed))
-                    
     print('Sent track points of GPX-file: %d' % num_points)    
     gpx_file.close()
+    if logfile > 0:
+        log_file.close()
     return 0
 
 def _options_okay(options):
@@ -263,14 +320,17 @@ if __name__ == '__main__':
     # optional options
     group = optparse.OptionGroup(optParser,"Optional")
     group.add_option("--callsign","-c", action="store", default="DEUKN", type="str", metavar="CALLSIGN", help="Aeroplane Callsign (default=DEUKN)")
-    group.add_option("--offsetstart","-o", action="store", default="120", type="float", metavar="OFFSETSTART", help="relative time to start [s] (default=%default)")
+    group.add_option("--offsetstart","-o", action="store", default="0", type="float", metavar="OFFSETSTART", help="relative time to start [s] (default=%default)")
     group.add_option("--duration","-u", action="store", default="18000", type="float", metavar="TIMEOFDURATION", help="relative duration of video [s] or absolute endtime [HH:MM:SS]) (default=%default)")
     group.add_option("--start_time","-s", action="store", default="", type="str", metavar="TIMEOFSTART", help="absolute start time [HH:MM:SS] (default=%default)") 
     group.add_option("--end_time","-e", action="store", default="", type="str", metavar="TIMEOFSTOP", help="absolute end time [HH:MM:SS] (default=%default)") 
-    group.add_option("--takeoff_altitude","-t", action="store", default="3409", type="float", metavar="TAKEOFFALT", help="Correct take off altitude [ft]) (default=%default)")
-    group.add_option("--landing_altitude","-l", action="store", default="1352", type="float", metavar="LANDINGALT", help="Correct landing altitude [ft]) (default=%default)")
+    group.add_option("--takeoff_altitude","-t", action="store", default="-1000", type="float", metavar="TAKEOFFALT", help="Correct take off altitude [ft]) (default=%default)")
+    group.add_option("--landing_altitude","-l", action="store", default="-1000", type="float", metavar="LANDINGALT", help="Correct landing altitude [ft]) (default=%default)")
     group.add_option("--dest","-d", action="store", default=DEF_SEND_ADDR, type="str", metavar="IP", help="destination IP (default=%default)")
     group.add_option("--port","-p", action="store", default=DEF_SEND_PORT, type="int", metavar="NUM", help="destination port (default=%default)")
+    group.add_option("--realtime","-r", action="store", default=0, type="int", metavar="REALTIME", help="simulation in real time (default=%default)")
+    group.add_option("--logfile","-g", action="store", default=1, type="int", metavar="LOGFILE", help="write a log file (default=%default)")
+    
     optParser.add_option_group(group)
 
     # do the option parsing
@@ -282,4 +342,4 @@ if __name__ == '__main__':
         sys.exit(EXIT_CODE['OPTIONS'])
 
     simulateIt(options.file, options.callsign, options.offsetstart, options.duration, options.takeoff_altitude, options.landing_altitude, 
-               options.dest, options.port, options.start_time, options.end_time)
+               options.dest, options.port, options.start_time, options.end_time, options.realtime, options.logfile)
