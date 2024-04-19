@@ -163,7 +163,8 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                     nextLonrad = math.radians(nextLongitude)
                     if FirstIt:
                         nextVerticalspeed = 0 
-                        nextTrack = 360.0
+                        nextTrack = 0.0
+                        lastTrack = 0.0
                         timeSim = nextTimeSim
                         FirstIt = False
                         if StartTime is None:
@@ -187,27 +188,29 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             continue
                         nextVerticalspeed = (nextAltitude - lastAltitude) / dT * 60
                         try:
-                            distance = math.acos(math.sin(lastLatrad)*math.sin(nextLatrad)+math.cos(lastLatrad)*math.cos(nextLatrad)*math.cos(min(0.0, max(1.0, nextLonrad-nextLonrad))))*6371 
+                            distance = math.acos(math.sin(lastLatrad)*math.sin(nextLatrad)+math.cos(lastLatrad)*math.cos(nextLatrad)*math.cos(min(0.0, max(1.0, nextLonrad-lastLonrad))))*6371 
                         except Exception as e:
                             prttext = "lastLatrad=%09.5f, nextLatrad=%09.5f, nextLonrad=%09.5f, nextLonrad=%09.5f" % (lastLatrad, nextLatrad, nextLonrad, nextLonrad)
                             print(prttext)
+                            distance = 0.0
                             if logfile > 0:
                                 log_file.write(prttext + "\n")
 
-                        if nextGroundspeed > 1.0 or distance > 0.01:
+                        if nextGroundspeed > 0.5 and distance > 0.001:
                             X = math.cos(nextLatrad) * math.sin(nextLonrad-lastLonrad)
                             Y = math.cos(lastLatrad) * math.sin(nextLatrad) - math.sin(lastLatrad) * math.cos(nextLatrad) * math.cos(nextLonrad-lastLonrad)
-                            nextTrack = math.degrees(math.atan2(X,Y))+360.0
-                            if lastTrack >= 540.0 and nextTrack < 200.0:
-                                lastTrack = lastTrack-360.0
-                            elif nextTrack >= 540.0 and lastTrack < 200.0:
-                                nextTrack = nextTrack - 360.0
-                            elif lastTrack <= 180.0 and nextTrack > 520.0:
-                                lastTrack = lastTrack + 360.0
-                            elif nextTrack <= 180.0 and lastTrack > 520.0:
-                                nextTrack = nextTrack + 360.0
+                            if X == 0.0 and Y == 0.0:
+                                continue
+                            nextTrack = math.degrees(math.atan2(X,Y))
+                            if nextTrack > 0.0:
+                                if abs(nextTrack - lastTrack) > abs(nextTrack-360.0 - lastTrack):
+                                    nextTrack = nextTrack -360.0
+                            else:
+                                if abs(nextTrack - lastTrack) > abs(nextTrack+360.0 - lastTrack):
+                                    nextTrack = nextTrack +360.0
                         else:
-                            nextGroundspeed = 0.0
+                            if lastGroundspeed < 5.0:
+                                nextGroundspeed = 0.0
                         while timeSim < nextTimeSim and dT > 0.5:
                             timeStartLoop = time.time()  # mark start time - just for delay
                             timeSim = timeSim + 1.0
@@ -219,7 +222,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             altitude = lastAltitude + (nextAltitude-lastAltitude) * intMult
                             groundspeed = lastGroundspeed + (nextGroundspeed-lastGroundspeed) * intMult
                             verticalspeed = lastVerticalspeed + (nextVerticalspeed-lastVerticalspeed) * intMult
-                            track = lastTrack + (nextTrack-lastTrack) * intMult - 360.0
+                            track = lastTrack + (nextTrack-lastTrack) * intMult
                             if track < 0:
                                 track = 360.0+track
 
@@ -247,7 +250,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             # On-screen status output 
                             if (timeSim % 1 == 0):
                                 showdatetime = logdatetime + timedelta(seconds=timeSim-lastTimeSim)
-                                prttext = "#%04d Real Time %s, lat=%09.5f, long=%09.5f, altitude=%05d, track=%05.1f, lasttrack=%05.1f, nexttrack=%05.1f, groundspeed=%05.1f" % (num_points, showdatetime.strftime('%H:%M:%S'), latitude, longitude, altitude, track, lastTrack, nextTrack, groundspeed)
+                                prttext = "#%04d Real Time %s, lat=%09.5f, long=%09.5f, altitude=%05d, track=%05.1f, lasttrack=%+05.1f, nexttrack=%+05.1f, groundspeed=%05.1f" % (num_points, showdatetime.strftime('%H:%M:%S'), latitude, longitude, altitude, track, lastTrack, nextTrack, groundspeed)
                                 print(prttext)
                                 if logfile > 0:
                                     log_file.write(prttext + "\n")
@@ -260,6 +263,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                     lastLonrad = nextLonrad
                     lastAltitude = nextAltitude
                     lastTimeSim = timeSim
+                    lastDir = nextTrack-lastTrack # für Drehrichtung
                     lastTrack = nextTrack
                     lastGroundspeed = nextGroundspeed
                     lastVerticalspeed = nextVerticalspeed
@@ -315,7 +319,7 @@ if __name__ == '__main__':
 
     # add options outside of any option group
     optParser.add_option("--verbose", "-v", action="store_true", help="Verbose reporting on STDERR")
-    optParser.add_option("--file","-f", action="store", default="example.gpx", type="str", metavar="FILE", help="input file (default=STDIN)")
+    optParser.add_option("--file","-f", action="store", default="example2.gpx", type="str", metavar="FILE", help="input file (default=STDIN)")
 
     # optional options
     group = optparse.OptionGroup(optParser,"Optional")
