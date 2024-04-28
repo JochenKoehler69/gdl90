@@ -69,7 +69,7 @@ def print_error(msg):
     """print an error message"""
     print(sys.stderr, msg)
 
-def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", port=43211, lapsefactor=1.0, starttimeStr='', endtimeStr=''):
+def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", port=43211, starttimeStr='', endtimeStr=''):
     print("Simulating Skyradar from Garmin CSV File")
     print("Transmitting to %s:%s" % (dest, port))
     StartTime = None
@@ -168,6 +168,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
 
         # This is the second run
         csv_file.seek(posStartofValues)
+        startTimeIteration = time.time()
         for row in reader:
             try:
                 timeStart = time.time()  # mark start time - just for delay
@@ -184,8 +185,8 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                     OffsetAltitudeMSL = 0
                     OffsetAltitudeP = 0
                 if FirstIt:
-                    time0 = timeSim
                     FirstIt = False
+                    startTimeSim = timeSim
                     if StartTime is None:
                         StartTime = currdatetime + timedelta(offsetstart)
                     else:
@@ -197,6 +198,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                         # Zeit auf Datum draufechnen
                         EndTime = datetime.combine(currdatetime.date(), EndTime)
                 if currdatetime < StartTime: # did we pass start time already?
+                    startTimeSim = timeSim
                     continue
                 elif currdatetime > EndTime: # is duration over already? 
                     break
@@ -214,7 +216,6 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                 else:
                     track = float(row[Product_IDs.id_track])
                 airspeed = float(row[Product_IDs.id_airspeed])
-                trueairspeed = float(row[Product_IDs.id_trueairspeed])
             except Exception as e:
                 print(e)
                 break
@@ -244,7 +245,8 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                 print("Real Time %s, lat=%3.6f, long=%3.6f, altitudeGPS=%d, heading=%d, groundspeed=%d, airspeed=%d" % (currdatetime.strftime('%H:%M:%S'), latitude, longitude, altitudeGPS, heading, groundspeed, airspeed))
                 
             # Delay for the rest of this second
-            time.sleep(max(0.0, 1.0/lapsefactor - (time.time() - timeStart)))
+            timeToWait = (timeSim - startTimeSim) - (time.time()-startTimeIteration)
+            time.sleep(max(0.0, timeToWait))
 
     print('Sent lines of csv-file: %d' % (reader.line_num))    
     csv_file.close()
@@ -295,7 +297,6 @@ if __name__ == '__main__':
     # optional options
     group = optparse.OptionGroup(optParser,"Optional")
     group.add_option("--callsign","-c", action="store", default="DEUKN", type="str", metavar="CALLSIGN", help="Aeroplane Callsign (default=DEUKN)")
-    group.add_option("--lapsefactor","-a", action="store", default="1.0", type="float", metavar="LAPSEFACTOR", help="time lapse factor (default=%default)")
     group.add_option("--offsetstart","-o", action="store", default="0", type="float", metavar="OFFSETSTART", help="relative time to start [s] (default=%default)")
     group.add_option("--duration","-u", action="store", default="18000", type="float", metavar="TIMEOFDURATION", help="relative duration of video [s] or absolute endtime [HH:MM:SS]) (default=%default)")
     group.add_option("--start_time","-s", action="store", default="09:45:00", type="str", metavar="TIMEOFSTART", help="absolute start time [HH:MM:SS] (default=%default)") 
@@ -315,4 +316,4 @@ if __name__ == '__main__':
         sys.exit(EXIT_CODE['OPTIONS'])
 
     simulateIt(options.file, options.callsign, options.offsetstart, options.duration, options.takeoff_altitude, options.landing_altitude, 
-               options.dest, options.port, options.lapsefactor, options.start_time, options.end_time)
+               options.dest, options.port, options.start_time, options.end_time)

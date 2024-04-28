@@ -59,7 +59,7 @@ def print_error(msg):
     print(sys.stderr, msg)
 
 def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_altitude=-2000.0, landing_altitude=-2000.0, dest="255.255.255.255", 
-               port=43211, starttimeStr='', endtimeStr='', realtime=0, logfile=0):
+               port=43211, starttimeStr='', endtimeStr='', logfile=0):
     print("Simulating Skyradar from Skydemon GPX File")
     print("Transmitting to %s:%s" % (dest, port))
     StartTime = None
@@ -134,21 +134,11 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
             # This is the second run
             num_points = 0
             dT = 0
+            # save beginning of iteration
+            startTimeIteration = time.time()
             for point in segment.points:
                 try:
                     logdatetime = point.time
-                    if realtime > 0:
-                        # Wir warten jetzt, bis wir Synchron mit der Echtzeit sind
-                        TimeToWaitForSync = datetime.now(timezone.utc) - logdatetime
-                        TimeToWaitInSec = TimeToWaitForSync.seconds + 86400*(TimeToWaitForSync.days)
-                        if TimeToWaitInSec > 3600:
-                            print("Sync Time has gone already :-( - Exiting")
-                            break
-                        else:
-                            if TimeSynced == False:
-                                print("Have to wait %d seconds" % (-TimeToWaitInSec))
-                            time.sleep(max(0.0, -TimeToWaitInSec))
-                            TimeSynced = True
                     nextTimeSim = logdatetime.second + logdatetime.minute *60 + logdatetime.hour *3600
                     # Altitude correction
                     if TakeOffDetectedForOffset:
@@ -166,6 +156,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                         nextTrack = 0.0
                         lastTrack = 0.0
                         timeSim = nextTimeSim
+                        startTimeSim = timeSim
                         FirstIt = False
                         if StartTime is None:
                             StartTime = logdatetime + timedelta(seconds=offsetstart)
@@ -180,6 +171,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                     else:
                         if logdatetime <= StartTime: # did we pass start time already?
                             timeSim = nextTimeSim
+                            startTimeSim = timeSim
                             continue
                         elif logdatetime > EndTime: # is duration over already? 
                             break                        
@@ -202,17 +194,16 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             if X == 0.0 and Y == 0.0:
                                 continue
                             nextTrack = math.degrees(math.atan2(X,Y))
-                            if nextTrack > 0.0:
-                                if abs(nextTrack - lastTrack) > abs(nextTrack-360.0 - lastTrack):
-                                    nextTrack = nextTrack -360.0
+                            if nextTrack - lastTrack > 180.0:
+                                lastTrack = lastTrack +360.0
                             else:
-                                if abs(nextTrack - lastTrack) > abs(nextTrack+360.0 - lastTrack):
-                                    nextTrack = nextTrack +360.0
+                                if nextTrack - lastTrack < -180.0:
+                                    lastTrack = lastTrack -360.0
                         else:
                             if lastGroundspeed < 5.0:
                                 nextGroundspeed = 0.0
                         while timeSim < nextTimeSim and dT > 0.5:
-                            timeStartLoop = time.time()  # mark start time - just for delay
+                            # timeStartLoop = time.time()  # mark start time - just for delay
                             timeSim = timeSim + 1.0
 
                             # Calculate intermediate step
@@ -223,6 +214,7 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             groundspeed = lastGroundspeed + (nextGroundspeed-lastGroundspeed) * intMult
                             verticalspeed = lastVerticalspeed + (nextVerticalspeed-lastVerticalspeed) * intMult
                             track = lastTrack + (nextTrack-lastTrack) * intMult
+
                             if track < 0:
                                 track = 360.0+track
 
@@ -248,14 +240,14 @@ def simulateIt(filename, callSign='', offsetstart=0, duration=18000, takeoff_alt
                             packetTotal += 1
                             
                             # On-screen status output 
-                            if (timeSim % 1 == 0):
+                            if (timeSim % 10 == 0):
                                 showdatetime = logdatetime + timedelta(seconds=timeSim-lastTimeSim)
                                 prttext = "#%04d Real Time %s, lat=%09.5f, long=%09.5f, altitude=%05d, track=%05.1f, lasttrack=%+05.1f, nexttrack=%+05.1f, groundspeed=%05.1f" % (num_points, showdatetime.strftime('%H:%M:%S'), latitude, longitude, altitude, track, lastTrack, nextTrack, groundspeed)
                                 print(prttext)
                                 if logfile > 0:
                                     log_file.write(prttext + "\n")
-
-                            time.sleep(max(0.0, 1.0 - (time.time()-timeStartLoop)))
+                            timeToWait = (timeSim - startTimeSim) - (time.time()-startTimeIteration)
+                            time.sleep(max(0.0, timeToWait))
 
                     lastLatitude = nextLatitude
                     lastLatrad = nextLatrad
@@ -332,7 +324,6 @@ if __name__ == '__main__':
     group.add_option("--landing_altitude","-l", action="store", default="-1000", type="float", metavar="LANDINGALT", help="Correct landing altitude [ft]) (default=%default)")
     group.add_option("--dest","-d", action="store", default=DEF_SEND_ADDR, type="str", metavar="IP", help="destination IP (default=%default)")
     group.add_option("--port","-p", action="store", default=DEF_SEND_PORT, type="int", metavar="NUM", help="destination port (default=%default)")
-    group.add_option("--realtime","-r", action="store", default=0, type="int", metavar="REALTIME", help="simulation in real time (default=%default)")
     group.add_option("--logfile","-g", action="store", default=1, type="int", metavar="LOGFILE", help="write a log file (default=%default)")
     
     optParser.add_option_group(group)
@@ -346,4 +337,4 @@ if __name__ == '__main__':
         sys.exit(EXIT_CODE['OPTIONS'])
 
     simulateIt(options.file, options.callsign, options.offsetstart, options.duration, options.takeoff_altitude, options.landing_altitude, 
-               options.dest, options.port, options.start_time, options.end_time, options.realtime, options.logfile)
+               options.dest, options.port, options.start_time, options.end_time, options.logfile)
